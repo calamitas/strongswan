@@ -124,7 +124,7 @@ static void deliver_plain(private_kernel_libipsec_router_t *this,
 	this->lock->read_lock(this->lock);
 	entry = this->tuns->get(this->tuns, &lookup);
 	tun = entry ? entry->tun : this->tun.tun;
-	tun->write_packet(tun, packet->get_encoding(packet));
+	tun->write_packet(tun, packet->get_version(packet) == 6 ? AF_INET6 : AF_INET, packet->get_encoding(packet));
 	this->lock->unlock(this->lock);
 	packet->destroy(packet);
 }
