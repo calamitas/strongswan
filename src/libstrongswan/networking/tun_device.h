@@ -48,10 +48,11 @@ struct tun_device_t {
 	/**
 	 * Write a packet to the TUN device
 	 *
+	 * @param protocol	protocol family the packet belongs to (e.g. AF_INET, AF_INET6)
 	 * @param packet		the packet to write to the TUN device
 	 * @return				TRUE if successful
 	 */
-	bool (*write_packet)(tun_device_t *this, chunk_t packet);
+	bool (*write_packet)(tun_device_t *this, uint32_t protocol, chunk_t packet);
 
 	/**
 	 * Set the IP address of the device

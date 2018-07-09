@@ -476,8 +476,8 @@ static bool install_route(private_kernel_libipsec_ipsec_t *this,
 		add_exclude_route(this, route, src, dst);
 	}
 
-	DBG2(DBG_KNL, "installing route: %R src %H dev %s",
-		 dst_ts, route->src_ip, route->if_name);
+	DBG2(DBG_KNL, "installing route: %R via %H src %H dev %s",
+		 dst_ts, route->gateway, route->src_ip, route->if_name);
 
 	switch (charon->kernel->add_route(charon->kernel, route->dst_net,
 									  route->prefixlen, route->gateway,
@@ -495,8 +495,8 @@ static bool install_route(private_kernel_libipsec_ipsec_t *this,
 			this->mutex->unlock(this->mutex);
 			return TRUE;
 		default:
-			DBG1(DBG_KNL, "installing route failed: %R src %H dev %s",
-				 dst_ts, route->src_ip, route->if_name);
+			DBG1(DBG_KNL, "installing route failed: %R via %H src %H dev %s",
+				 dst_ts, route->gateway, route->src_ip, route->if_name);
 			remove_exclude_route(this, route);
 			route_entry_destroy(route);
 			this->mutex->unlock(this->mutex);
