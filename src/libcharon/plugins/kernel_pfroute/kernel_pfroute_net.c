@@ -1511,7 +1511,7 @@ METHOD(kernel_net_t, add_route, status_t,
 		this->routes_lock->unlock(this->routes_lock);
 		return ALREADY_DONE;
 	}
-	status = manage_route(this, RTM_ADD, dst_net, prefixlen, gateway, if_name);
+	status = manage_route(this, RTM_ADD, dst_net, prefixlen, src_ip, if_name);
 	if (status == SUCCESS)
 	{
 		found = route_entry_clone(&route);
@@ -1542,7 +1542,7 @@ METHOD(kernel_net_t, del_route, status_t,
 	}
 	this->routes->remove(this->routes, found);
 	route_entry_destroy(found);
-	status = manage_route(this, RTM_DELETE, dst_net, prefixlen, gateway,
+	status = manage_route(this, RTM_DELETE, dst_net, prefixlen, src_ip,
 						  if_name);
 	this->routes_lock->unlock(this->routes_lock);
 	return status;
