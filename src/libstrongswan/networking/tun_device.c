@@ -54,7 +54,6 @@ tun_device_t *tun_device_create(const char *name_tmpl)
 #ifdef __APPLE__
 #include <net/if_utun.h>
 #include <netinet/in_var.h>
-#include <netinet6/in6_var.h>
 #include <sys/kern_control.h>
 #elif defined(__linux__)
 #include <linux/types.h>
@@ -92,7 +91,6 @@ struct private_tun_device_t {
 	 * Socket used for ioctl() to set interface addr, ...
 	 */
 	int sock;
-	int sock_v6;
 
 	/**
 	 * The current MTU
@@ -142,7 +140,7 @@ static bool set_address_and_mask(struct in_aliasreq *ifra, host_t *addr,
  * Set the address using the more flexible SIOCAIFADDR/SIOCDIFADDR commands
  * on FreeBSD 10 an newer.
  */
-static bool set_address_impl_v4(private_tun_device_t *this, host_t *addr,
+static bool set_address_impl(private_tun_device_t *this, host_t *addr,
 							 uint8_t netmask)
 {
 	struct in_aliasreq ifra;
@@ -181,7 +179,7 @@ static bool set_address_impl_v4(private_tun_device_t *this, host_t *addr,
 /**
  * Set the address using the classic SIOCSIFADDR etc. commands on other systems.
  */
-static bool set_address_impl_v4(private_tun_device_t *this, host_t *addr,
+static bool set_address_impl(private_tun_device_t *this, host_t *addr,
 							 uint8_t netmask)
 {
 	struct ifreq ifr;
@@ -226,67 +224,15 @@ static bool set_address_impl_v4(private_tun_device_t *this, host_t *addr,
 	return TRUE;
 }
 
-static bool set_address_impl_v6(private_tun_device_t *this, host_t *addr, u_int8_t netmask)
-{
-	struct in6_aliasreq ifra = {
-		.ifra_lifetime = { 0, 0, 0xffffffff, 0xffffffff },
-	};
-	host_t *mask;
-
-	strncpy(ifra.ifra_name, this->if_name, IFNAMSIZ);
-	memcpy(&ifra.ifra_addr, addr->get_sockaddr(addr),
-		   *addr->get_sockaddr_len(addr));
-#ifdef __APPLE__
-	/* FIXME: not sure if this is required */
-	memcpy(&ifra.ifra_dstaddr, addr->get_sockaddr(addr),
-		   *addr->get_sockaddr_len(addr));
-#endif
-	mask = host_create_netmask(addr->get_family(addr), netmask);
-	if (!mask)
-	{
-		DBG1(DBG_LIB, "invalid netmask: %d", netmask);
-		return FALSE;
-	}
-	memcpy(&ifra.ifra_prefixmask, mask->get_sockaddr(mask),
-		   *mask->get_sockaddr_len(mask));
-	mask->destroy(mask);
-
-	/* SIOCSIFADDR_IN6 is deprecated and won't work, but we'd probably have
-	 * to delete the existing address first with SIOCDIFADDR_IN6 (we use
-	 * one TUN device per VIP on BSD though) */
-	if (ioctl(this->sock_v6, SIOCAIFADDR_IN6, &ifra) < 0)
-	{
-		DBG1(DBG_LIB, "failed to set address on %s: %s",
-			 this->if_name, strerror(errno));
-		return FALSE;
-	}
-	return TRUE;
-}
-
-
 #endif /* __FreeBSD__ */
 
 METHOD(tun_device_t, set_address, bool,
 	private_tun_device_t *this, host_t *addr, uint8_t netmask)
 {
-	switch (addr->get_family(addr))
+	if (!set_address_impl(this, addr, netmask))
 	{
-		case AF_INET:
-			if (!set_address_impl_v4(this, addr, netmask))
-			{
-				return FALSE;
-			}
-			break;
-		case AF_INET6:
-			if (!set_address_impl_v6(this, addr, netmask))
-			{
-				return FALSE;
-			}
-			break;
-		default:
-			return FALSE;
+		return FALSE;
 	}
-
 	DESTROY_IF(this->address);
 	this->address = addr->clone(addr);
 	this->netmask = netmask;
@@ -382,13 +328,14 @@ METHOD(tun_device_t, get_fd, int,
 }
 
 METHOD(tun_device_t, write_packet, bool,
-	private_tun_device_t *this, uint32_t protocol, chunk_t packet)
+	private_tun_device_t *this, chunk_t packet)
 {
 	ssize_t s;
 
 #ifdef __APPLE__
-	/* UTUN's expect the packets to be prepended by a 32-bit protocol number */
-	uint32_t proto = htonl(protocol);
+	/* UTUN's expect the packets to be prepended by a 32-bit protocol number
+	 * instead of parsing the packet again, we assume IPv4 for now */
+	uint32_t proto = htonl(AF_INET);
 	packet = chunk_cata("cc", chunk_from_thing(proto), packet);
 #endif
 	s = write(this->tunfd, packet.ptr, packet.len);
@@ -628,15 +575,6 @@ tun_device_t *tun_device_create(const char *name_tmpl)
 		destroy(this);
 		return NULL;
 	}
-
-	this->sock_v6 = socket(AF_INET6, SOCK_DGRAM, 0);
-	if (this->sock_v6 < 0)
-	{
-		DBG1(DBG_LIB, "failed to open IPv6 socket to configure TUN device");
-		destroy(this);
-		return NULL;
-	}
-
 	return &this->public;
 }
 
