@@ -1,0 +1,22 @@
+#!/bin/sh
+
+connection="$1"
+
+if [ "$connection" != "satellite" ]; then
+  connection="hq"
+fi
+
+swanctl --terminate --ike "$connection"
+ipsec stop
+
+# case `uname` in
+#   Linux)
+#     # Very aggressive, would prefer other method
+#     systemctl restart NetworkManager
+#     ;;
+#   Darwin)
+#     # networkservice=`networksetup -listnetworkserviceorder | head -n 2 | tail -n -1 | cut -d ' ' -f 2-`
+#     networkservice=Wi-Fi
+#     networksetup -setdnsservers "$networkservice" empty
+#     ;;
+# esac

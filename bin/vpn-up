@@ -1,0 +1,42 @@
+#!/bin/sh
+
+connection="$1"
+type="$2"
+
+if [ "$connection" != "satellite" ]; then
+  connection="hq"
+fi
+
+if [ "$type" != "full" ]; then
+  type="split"
+fi
+
+ipsec start
+sleep 1
+swanctl --load-all
+
+case "$type" in
+  split)
+    swanctl --initiate --child "$connection-local-6"
+    swanctl --initiate --child "$connection-local-4"
+    swanctl --initiate --child "$connection-devops-bastion-6"
+    swanctl --initiate --child "$connection-devops-application-6"
+    swanctl --initiate --child "$connection-devops-4"
+    ;;
+  full)
+    swanctl --initiate --child "$connection-full-6"
+    swanctl --initiate --child "$connection-full-4"
+    ;;
+esac
+
+# case `uname` in
+#   Linux)
+#     iface=`ip route | grep default | cut -d ' ' -f 5`
+#     systemd-resolve --interface=$iface --set-dns=2a05:d018:6c:f101:e40:355:2c30:3373 --set-dns=10.2.1.54
+#     ;;
+#   Darwin)
+#     # networkservice=`networksetup -listnetworkserviceorder | head -n 2 | tail -n -1 | cut -d ' ' -f 2-`
+#     networkservice=Wi-Fi
+#     networksetup -setdnsservers "$networkservice" 2a05:d018:6c:f101:e40:355:2c30:3373 10.2.1.54
+#     ;;
+# esac

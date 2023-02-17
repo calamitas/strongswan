@@ -1,0 +1,2 @@
+# docker run --name strongswan --cap-add=NET_ADMIN --cap-add=NET_RAW -v /usr/local/etc/swanctl:/usr/local/etc/swanctl --net=host -ti --rm strongswan bash
+docker run --name strongswan --network strongswan --cap-add NET_ADMIN --cap-add NET_RAW -v /usr/local/etc/swanctl:/usr/local/etc/swanctl -v /home/peter/.ssh:/home/app/.ssh -ti --rm strongswan bash -c "vpn-up ; sudo -u app -i /bin/bash -c 'autossh pi -L0.0.0.0:2222::' ; vpn-down"
